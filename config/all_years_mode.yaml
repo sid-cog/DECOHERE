@@ -1,0 +1,33 @@
+'# ALL YEARS Mode Configuration': null
+? ''
+: null
+'# Date range': null
+date:
+  start_date: '2020-01-01'
+  end_date: '2024-12-31'
+'# Processing Parameters': null
+processing:
+  chunk_size: 50
+  max_workers: 8
+  enable_parallel: true
+'# Data Filtering': null
+filter:
+  limit_tickers: null
+  min_periods: 5
+'# Feature Selection': null
+feature_selection:
+  method: shap_threshold
+  min_threshold: 0.01
+  min_features: 20
+  max_features: 60
+  cumulative_threshold: 0.95
+'# Model Parameters': null
+model:
+  type: elasticnet
+  cv_folds: 5
+  test_size: 0.2
+'# Output': null
+output:
+  save_intermediate: true
+  results_dir: results/all_years_mode
+  visualizations: true

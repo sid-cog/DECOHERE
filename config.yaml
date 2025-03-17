@@ -1,0 +1,31 @@
+# DECOHERE Pipeline Configuration
+
+# Data paths
+data:
+  raw_path: "/home/siddharth_johri/projects/data/financials/financials_2024_09.pq"
+  processed_path: "data/processed/processed_data.pq"
+  features_path: "data/features/features.pq"
+
+# Processing parameters
+processing:
+  winsorize_threshold: 0.01  # 1% threshold for winsorization
+  fill_method: "linear"      # Method for filling missing values
+
+# Feature generation
+features:
+  metrics:
+    - "SALES_REV_TURN"
+    - "BS_TOT_ASSET"
+    - "EBIT"
+    - "NET_INCOME"
+    - "CF_FREE_CASH_FLOW"
+  
+  # Number of periods to use for feature generation
+  periods: 12
+
+# Pipeline modes
+modes:
+  day: "2024-09-11"
+  week: "2024-09-05"
+  month: "2024-09-01"
+  year: "2024-01-01" 

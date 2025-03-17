@@ -1,0 +1,12 @@
+description: Process all available data across all years
+mode: all_years
+processing:
+  enable_filling: true
+  reprocess_data: false
+  winsorize_threshold: 3.0
+storage:
+  compression: snappy
+  partition_by:
+  - year
+  - month
+  use_efficient_storage: true

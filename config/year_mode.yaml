@@ -1,0 +1,37 @@
+# Year Mode Configuration
+
+# Date range
+date:
+  start_date: "2023-09-20"
+  end_date: "2024-09-20"
+
+# Processing Parameters
+processing:
+  chunk_size: 20
+  max_workers: 4
+  enable_parallel: true
+
+# Data Filtering
+filter:
+  limit_tickers: 500    # Limit to top 500 tickers by market cap
+  min_periods: 8        # Minimum number of periods required
+
+# Feature Selection
+feature_selection:
+  method: "shap_threshold"
+  min_threshold: 0.01
+  min_features: 20
+  max_features: 60
+  cumulative_threshold: 0.95
+
+# Model Parameters
+model:
+  type: "elasticnet"
+  cv_folds: 5
+  test_size: 0.2
+
+# Output
+output:
+  save_intermediate: true
+  results_dir: "results/year_mode"
+  visualizations: true 

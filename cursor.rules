@@ -1,0 +1,30 @@
+# DECOHERE Project Rules for Cursor IDE
+
+## Temporary Files
+- Store all temporary, test, and backup files in the `temp_execution_files` directory
+- This includes test outputs, logs, and any files not part of the main codebase
+- Example: `os.path.join('temp_execution_files', 'output.csv')`
+
+## Code Style
+- Use snake_case for file names and function names
+- Use CamelCase for class names
+- Follow the existing code style in each file
+
+## Documentation
+- Document all functions and classes with docstrings
+- Keep documentation in the `docs` directory up-to-date
+- Update README files when making significant changes
+
+## Testing
+- Store test outputs in the `temp_execution_files` directory
+- Run tests before committing changes
+- Verify that the pipeline works correctly after changes
+
+## Terminal Commands
+- Limit output volume in terminal commands
+- Use proper error handling in scripts
+- Implement progress reporting for long-running operations
+
+## Project Maintenance
+- Periodically clean up the `temp_execution_files` directory
+- Follow the guidelines in `docs/PROJECT_GUIDELINES.md` 

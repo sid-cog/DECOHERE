@@ -1,0 +1,88 @@
+data:
+  features:
+    base_dir: data/features
+    fundamental: fundamental
+  processed_data: data/processed
+  raw_data: /home/siddharth_johri/projects/data/financials/financials_2024_09.pq
+  # New data source paths
+  financials_dir: /home/siddharth_johri/projects/data/financials
+  sector_mapping: /home/siddharth_johri/projects/data/sector/sector.pq
+  price_returns: /home/siddharth_johri/projects/data/returns/px_df.pq
+  total_returns: /home/siddharth_johri/projects/data/returns/tr_df.pq
+feature_selection:
+  cumulative_threshold: 0.95
+  max_features: 40
+  method: shap_threshold
+  min_features: 10
+  min_threshold: 0.01
+  use_cumulative: true
+features:
+  metrics:
+  - NET_INCOME
+  - NET_INCOME_cstat_std
+  - EBIT
+  - EBIT_cstat_std
+  - EBITDA
+  - EBITDA_cstat_std
+  - SALES
+  - SALES_cstat_std
+  - INTEREST_EXPENSE_TO_TOTAL_DEBT
+  - RETURN_ON_ASSETS
+  - NET_OPERATING_ASSETS
+  - INVENTORIES
+  - RETURN_COM_EQY
+  - RETURN_COM_EQY_cstat_std
+  - PX_TO_BOOK_RATIO
+  - PREV_PX_TO_BOOK_RATIO
+  - DEBT_TO_EQUITY_RATIO
+  - NET_DEBT_TO_EQUITY_RATIO
+  - FREE_CASH_FLOW
+  - CURRENT_RATIO
+  - OPERATING_MARGIN
+  - ASSET_TURNOVER
+  - DIVIDEND
+  - INVENTORY_TURNOVER
+  - INVENTORY_TURNOVER_cstat_std
+  - INTEREST_COVERAGE
+  - QUICK_RATIO
+  - CAPEX
+  - DEPRECIATION
+  - PREV_PE_RATIO
+  raw_ratios: true
+  targets:
+  - PX_TO_BOOK_RATIO_TARGET
+  - PE_RATIO_TARGET
+logging:
+  console: true
+  file: logs/pipeline.log
+  level: INFO
+model:
+  cv_folds: 5
+  params:
+    alpha: 0.1
+    l1_ratio: 0.5
+  random_state: 42
+  test_size: 0.2
+  type: elasticnet
+modes:
+  all_years:
+    config_file: config/modes/all_years_mode.yaml
+    description: Process all available data across all years
+  day:
+    config_file: config/day_mode.yaml
+  week:
+    config_file: config/week_mode.yaml
+  year:
+    config_file: config/year_mode.yaml
+processing:
+  chunk_size: 5
+  enable_filling: true
+  enable_parallel: false
+  max_workers: 1
+  winsorize_threshold: 3.0
+storage:
+  compression: snappy
+  partition_by:
+  - year
+  - month
+  use_efficient_storage: true
