@@ -3,10 +3,127 @@
 This document provides detailed technical information about specific components and implementations in the DECOHERE project.
 
 ## Table of Contents
-1. [NaN Handling](#nan-handling)
-2. [Feature Generator Updates](#feature-generator-updates)
-3. [PIT_DATE Handling Changes](#pit_date-handling-changes)
-4. [Efficient Data Storage System](#efficient-data-storage-system)
+1. [Data Processor Updates](#data-processor-updates)
+2. [NaN Handling](#nan-handling)
+3. [Feature Generator Updates](#feature-generator-updates)
+4. [PIT_DATE Handling Changes](#pit_date-handling-changes)
+5. [Efficient Data Storage System](#efficient-data-storage-system)
+
+## Data Processor Updates
+
+### Overview
+
+The DataProcessor class has been updated to support multiple data sources and efficient data storage. The latest changes include:
+
+1. **Multiple Data Sources**:
+   - Financial data from fundamentals directory
+   - Sector mapping data
+   - Price and total returns data
+
+2. **Efficient Storage Integration**:
+   - Uses partitioned Parquet datasets
+   - Supports multiple access modes
+   - Maintains backward compatibility
+
+3. **Enhanced Data Loading**:
+   - Flexible data source selection
+   - Efficient filtering capabilities
+   - Memory-optimized operations
+
+### Key Methods
+
+1. **load_raw_data**:
+   ```python
+   def load_raw_data(self, date: Optional[str] = None) -> pd.DataFrame:
+   ```
+   - Loads raw financial data
+   - Supports date filtering
+   - Handles multiple data sources
+
+2. **load_sector_mapping**:
+   ```python
+   def load_sector_mapping(self) -> pd.DataFrame:
+   ```
+   - Loads sector mapping data
+   - Extracts from fundamentals if available
+   - Falls back to legacy format
+
+3. **load_price_returns**:
+   ```python
+   def load_price_returns(self) -> pd.DataFrame:
+   ```
+   - Loads price returns data
+   - Supports multiple storage formats
+   - Handles missing data gracefully
+
+4. **load_total_returns**:
+   ```python
+   def load_total_returns(self) -> pd.DataFrame:
+   ```
+   - Loads total returns data
+   - Supports multiple storage formats
+   - Handles missing data gracefully
+
+5. **process_data**:
+   ```python
+   def process_data(self, start_date: str, end_date: str) -> Dict[str, str]:
+   ```
+   - Processes data for a date range
+   - Uses efficient storage
+   - Returns processed file paths
+
+6. **load_processed_data_by_mode**:
+   ```python
+   def load_processed_data_by_mode(self, mode: str = 'day', date: str = None,
+                                 start_date: str = None, end_date: str = None) -> pd.DataFrame:
+   ```
+   - Loads processed data based on mode
+   - Supports day, week, year, and all_years modes
+   - Uses efficient filtering
+
+### Data Processing Pipeline
+
+1. **Data Loading**:
+   - Load raw data from appropriate source
+   - Apply date filtering if specified
+   - Handle missing values
+
+2. **Data Transformation**:
+   - Convert column names to uppercase
+   - Apply data cleaning
+   - Generate features
+
+3. **Data Storage**:
+   - Save processed data using efficient storage
+   - Maintain data consistency
+   - Support multiple access modes
+
+### Configuration
+
+The DataProcessor can be configured through the config.yaml file:
+
+```yaml
+data:
+  raw_data: "path/to/raw/data"
+  processed_data: "path/to/processed/data"
+  fundamentals_dir: "path/to/fundamentals"
+  returns_dir: "path/to/returns"
+  sector_mapping: "path/to/sector/mapping"
+  price_returns: "path/to/price/returns"
+  total_returns: "path/to/total/returns"
+
+processing:
+  enable_filling: true
+  winsorize_threshold: 3.0
+  scaling_variable: "SALES"
+  winsorize: false
+  winsorize_limits: [0.01, 0.99]
+
+features:
+  identifier_fields: ["ID", "PERIOD_END_DATE", "PIT_DATE"]
+  absolute_value_fields: ["SALES", "ASSETS"]
+  standard_deviation_fields: ["RETURNS"]
+```
 
 ## NaN Handling
 

@@ -14,15 +14,18 @@ DECOHERE/
 ├── data/                # Data storage
 │   ├── raw/             # Raw financial data
 │   ├── processed/       # Processed data
+│   │   ├── fundamentals/ # Financial and sector data
+│   │   └── returns/     # Price and total returns data
 │   └── features/        # Generated features
 ├── docs/                # Documentation
 ├── notebooks/           # Jupyter notebooks
 ├── src/                 # Source code
 │   ├── data/            # Data processing modules
+│   │   ├── data_processor.py      # Main data processing class
+│   │   └── efficient_data_storage.py # Efficient storage implementation
 │   ├── features/        # Feature engineering modules
 │   ├── models/          # Model training and evaluation
 │   └── utils/           # Utility functions
-├── temp_execution_files/ # Temporary files for testing and development
 ├── tests/               # Unit tests
 └── cursor.rules         # Guidelines for Cursor IDE users
 ```
@@ -54,7 +57,7 @@ The pipeline can be run through the Jupyter notebook interface:
 jupyter notebook notebooks/pipeline.ipynb
 ```
 
-The notebook provides three modes of operation:
+The notebook provides four modes of operation:
 - **Day Mode**: Process a single day of data
 - **Week Mode**: Process a week of data
 - **Year Mode**: Process a year of data
@@ -62,10 +65,13 @@ The notebook provides three modes of operation:
 
 ## Pipeline Components
 
-1. **Data Loading**: Load raw financial data from various sources
+1. **Data Loading**: Load raw financial data from various sources:
+   - Financial data from fundamentals directory
+   - Sector mapping data
+   - Price and total returns data
 2. **Data Processing**: Clean, transform, and normalize the data
 3. **Feature Generation**: Create features for analysis
-4. **Data Storage**: Efficiently store and retrieve processed data
+4. **Data Storage**: Efficiently store and retrieve processed data using partitioned Parquet datasets
 
 ## Documentation
 
@@ -74,17 +80,29 @@ For detailed documentation, please refer to:
 - [Project Documentation](docs/DECOHERE_DOCUMENTATION.md): Comprehensive documentation of the entire project
 - [Pipeline Documentation](notebooks/README.md): Detailed documentation of the pipeline notebook
 - [Project Rules and Guidelines](docs/PROJECT_RULES.md): Rules for contributing to and maintaining the project
-- [Terminal Command Guidelines](docs/TERMINAL_COMMAND_GUIDELINES.md): Best practices for running terminal commands and scripts with large datasets
-- [PIT_DATE Changes](README_PIT_DATE_CHANGES.md): Documentation of changes made to PIT_DATE handling
-- [Cleanup Summary](CLEANUP_SUMMARY.md): Summary of the cleanup process performed on the project
-- [Efficient Storage](README_EFFICIENT_STORAGE.md): Documentation of the efficient data storage system
+- [Technical Documentation](docs/TECHNICAL_DOCUMENTATION.md): Detailed technical information about specific components
+- [Efficient Storage](docs/README_EFFICIENT_STORAGE.md): Documentation of the efficient data storage system
 
 ## Configuration
 
 The pipeline can be configured through YAML files in the `config/` directory:
-- `config.yaml`: Main configuration file
+- `config.yaml`: Main configuration file containing:
+  - Data source paths
+  - Processing parameters
+  - Feature generation settings
+  - Storage configuration
 
 ## Maintenance
+
+### Data Storage
+
+The project uses an efficient data storage system that:
+1. Partitions data by year and month for faster queries
+2. Supports multiple access modes (day, week, year, all years)
+3. Uses Parquet format for efficient storage and retrieval
+4. Maintains backward compatibility with legacy formats
+
+For more details, see the [Efficient Storage Documentation](docs/README_EFFICIENT_STORAGE.md).
 
 ### Cleaning Up the Project
 
