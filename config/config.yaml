@@ -1,14 +1,137 @@
+# Main configuration file for DECOHERE pipeline
+
+# Data paths configuration
 data:
+  base_dir: /home/siddharth.johri/DECOHERE/data
+  raw:
+    fundamentals: raw/fundamentals
+    returns: raw/returns
+    alternate:
+      type_A: raw/alternate/type_A
+      type_B: raw/alternate/type_B
+  intermediate:
+    fundamentals: intermediate/fundamentals
+    returns: intermediate/returns
+    alternate:
+      type_A: intermediate/alternate/type_A
+      type_B: intermediate/alternate/type_B
+  processed:
+    fundamentals: processed/fundamentals
+    returns: processed/returns
+    alternate:
+      type_A: processed/alternate/type_A
+      type_B: processed/alternate/type_B
   features:
-    base_dir: data/features
-    fundamental: fundamental
-  processed_data: data/processed
-  raw_data: /home/siddharth_johri/projects/data/financials/financials_2024_09.pq
-  # New data source paths
-  financials_dir: /home/siddharth_johri/projects/data/financials
+    fundamentals: features/fundamentals
+    returns: features/returns
+    alternate:
+      type_A: features/alternate/type_A
+      type_B: features/alternate/type_B
+  models: models
+  reporting: reporting
+  # Specific data source paths
+  financials_dir: raw/fundamentals
   sector_mapping: /home/siddharth_johri/projects/data/sector/sector.pq
   price_returns: /home/siddharth_johri/projects/data/returns/px_df.pq
   total_returns: /home/siddharth_johri/projects/data/returns/tr_df.pq
+
+# Processing configuration
+processing:
+  storage:
+    partition_by: ["date", "mode"]
+    file_format: "parquet"
+    compression: "snappy"
+    index: false
+  chunk_size: 5
+  winsorization_threshold: 0.01
+  fill_method: "linear"
+  min_data_points: 100
+  max_missing_ratio: 0.2
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/pipeline.log"
+
+# Mode configurations
+modes:
+  day:
+    config_file: "config/modes/day_config.yaml"
+    batch_size: 1
+    max_days: 1
+  week:
+    config_file: "config/modes/week_config.yaml"
+    batch_size: 5
+    max_days: 5
+  year:
+    config_file: "config/modes/year_config.yaml"
+    batch_size: 252
+    max_days: 252
+
+# Feature configuration
+features:
+  scaling_variable: SALES
+  identifier_fields:
+    - ID
+    - PIT_DATE
+    - PERIOD_END_DATE
+    - period
+    - fiscal_month
+  absolute_value_fields:
+    - NET_INCOME
+    - EBIT
+    - EBITDA
+    - SALES
+    - NET_OPERATING_ASSETS
+    - INVENTORIES
+    - FREE_CASH_FLOW
+    - DIVIDEND
+    - CAPEX
+    - DEPRECIATION
+  standard_deviation_fields:
+    - NET_INCOME_CSTAT_STD
+    - EBIT_CSTAT_STD
+    - EBITDA_CSTAT_STD
+    - SALES_CSTAT_STD
+    - RETURN_COM_EQY_CSTAT_STD
+    - INVENTORY_TURNOVER_CSTAT_STD
+  ratio_fields:
+    - INTEREST_EXPENSE_TO_TOTAL_DEBT
+    - RETURN_ON_ASSETS
+    - RETURN_COM_EQY
+    - PE_RATIO
+    - PREV_PE_RATIO
+    - PX_TO_BOOK_RATIO
+    - PREV_PX_TO_BOOK_RATIO
+    - DEBT_TO_EQUITY_RATIO
+    - NET_DEBT_TO_EQUITY_RATIO
+    - CURRENT_RATIO
+    - OPERATING_MARGIN
+    - ASSET_TURNOVER
+    - INVENTORY_TURNOVER
+    - INTEREST_COVERAGE
+    - QUICK_RATIO
+    - NET_INCOME_COEFF_OF_VAR
+    - EBIT_COEFF_OF_VAR
+    - EBITDA_COEFF_OF_VAR
+    - SALES_COEFF_OF_VAR
+    - RETURN_COM_EQY_COEFF_OF_VAR
+    - INVENTORY_TURNOVER_COEFF_OF_VAR
+  suffixes:
+    raw: "_RAW"
+    signed_log: "_SIGNED_LOG"
+    ratio: "_RATIO" 
+    scaled: "_SCALED_{SALES}"
+    raw_signed_log: "_RAW_SIGNED_LOG"
+    raw_scaled: "_RAW_SCALED_{SALES}"
+    raw_scaled_signed_log: "_RAW_SCALED_{SALES}_SIGNED_LOG"
+    ratio_signed_log: "_RATIO_SIGNED_LOG"
+  targets:
+    - PX_TO_BOOK_RATIO_TARGET
+    - PE_RATIO_TARGET
+
+# Feature selection configuration
 feature_selection:
   cumulative_threshold: 0.95
   max_features: 40
@@ -16,73 +139,3 @@ feature_selection:
   min_features: 10
   min_threshold: 0.01
   use_cumulative: true
-features:
-  metrics:
-  - NET_INCOME
-  - NET_INCOME_cstat_std
-  - EBIT
-  - EBIT_cstat_std
-  - EBITDA
-  - EBITDA_cstat_std
-  - SALES
-  - SALES_cstat_std
-  - INTEREST_EXPENSE_TO_TOTAL_DEBT
-  - RETURN_ON_ASSETS
-  - NET_OPERATING_ASSETS
-  - INVENTORIES
-  - RETURN_COM_EQY
-  - RETURN_COM_EQY_cstat_std
-  - PX_TO_BOOK_RATIO
-  - PREV_PX_TO_BOOK_RATIO
-  - DEBT_TO_EQUITY_RATIO
-  - NET_DEBT_TO_EQUITY_RATIO
-  - FREE_CASH_FLOW
-  - CURRENT_RATIO
-  - OPERATING_MARGIN
-  - ASSET_TURNOVER
-  - DIVIDEND
-  - INVENTORY_TURNOVER
-  - INVENTORY_TURNOVER_cstat_std
-  - INTEREST_COVERAGE
-  - QUICK_RATIO
-  - CAPEX
-  - DEPRECIATION
-  - PREV_PE_RATIO
-  raw_ratios: true
-  targets:
-  - PX_TO_BOOK_RATIO_TARGET
-  - PE_RATIO_TARGET
-logging:
-  console: true
-  file: logs/pipeline.log
-  level: INFO
-model:
-  cv_folds: 5
-  params:
-    alpha: 0.1
-    l1_ratio: 0.5
-  random_state: 42
-  test_size: 0.2
-  type: elasticnet
-modes:
-  all_years:
-    config_file: config/modes/all_years_mode.yaml
-    description: Process all available data across all years
-  day:
-    config_file: config/day_mode.yaml
-  week:
-    config_file: config/week_mode.yaml
-  year:
-    config_file: config/year_mode.yaml
-processing:
-  chunk_size: 5
-  enable_filling: true
-  enable_parallel: false
-  max_workers: 1
-  winsorize_threshold: 3.0
-storage:
-  compression: snappy
-  partition_by:
-  - year
-  - month
-  use_efficient_storage: true

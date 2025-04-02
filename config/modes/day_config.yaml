@@ -1,0 +1,30 @@
+# Day mode configuration
+
+mode: "day"
+batch_size: 1
+max_days: 1
+
+# Processing parameters specific to day mode
+processing:
+  winsorization_threshold: 0.01
+  fill_method: "linear"
+  min_data_points: 100
+  max_missing_ratio: 0.2
+
+# Feature generation parameters specific to day mode
+feature_generation:
+  metrics:
+    - momentum
+    - volatility
+    - volume
+  lookback_periods: [5, 10, 20]
+  rolling_windows: [5, 10, 20]
+
+# Model training parameters specific to day mode
+model_training:
+  type: "ridge"
+  alpha: 1.0
+  cv_folds: 3
+  early_stopping_rounds: 5
+  learning_rate: 0.01
+  max_iterations: 500 

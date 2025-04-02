@@ -7,21 +7,27 @@ Configuration loader for the DECOHERE pipeline.
 
 import os
 import yaml
+from pathlib import Path
 from typing import Dict, Any, Optional
 
 
-def load_config(config_path: str) -> Dict[str, Any]:
+def load_config(config_path: str = 'config.yaml') -> Dict[str, Any]:
     """
-    Load configuration from a YAML file.
+    Load configuration from YAML file.
     
     Args:
         config_path: Path to the configuration file
         
     Returns:
-        Dictionary containing the configuration
+        Dict[str, Any]: Configuration dictionary
     """
+    config_path = Path(config_path)
+    if not config_path.exists():
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+    
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
+    
     return config
 
 

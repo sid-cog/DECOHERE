@@ -13,6 +13,8 @@ from typing import Dict, List, Tuple, Optional, Any, Union
 from src.data.efficient_data_storage import EfficientDataStorage
 from src.data.efficient_data_storage import EfficientDataStorage
 from pathlib import Path
+from datetime import datetime
+from src.data.data_types import DataType, DataStage
 
 
 class DataProcessor:
@@ -26,37 +28,78 @@ class DataProcessor:
         
         Args:
             config: Configuration dictionary
-            logger: Logger to use (if None, create a new logger)
+            logger: Optional logger instance. If not provided, a new logger will be created.
         """
         self.config = config
-        self.logger = logger or logging.getLogger(__name__)
         
-        # Extract configuration parameters
-        self.raw_data_path = config['data']['raw_data']
-        self.processed_data_dir = config['data']['processed_data']
-        self.enable_filling = config['processing'].get('enable_filling', True)
-        self.winsorize_threshold = config['processing'].get('winsorize_threshold', 3.0)
+        # Initialize logger
+        self.logger = logger if logger is not None else logging.getLogger(__name__)
         
-        # Data source paths
-        self.financials_dir = config['data'].get('financials_dir', '/home/siddharth_johri/projects/data/financials')
-        self.sector_mapping_path = config['data'].get('sector_mapping', '/home/siddharth_johri/projects/data/sector/sector.pq')
-        self.price_returns_path = config['data'].get('price_returns', '/home/siddharth_johri/projects/data/returns/px_df.pq')
-        self.total_returns_path = config['data'].get('total_returns', '/home/siddharth_johri/projects/data/returns/tr_df.pq')
+        # Initialize data storage
+        self.data_storage = EfficientDataStorage(config, logger)
         
-        # New storage structure paths
-        self.fundamentals_dir = os.path.join(self.processed_data_dir, "fundamentals")
-        self.returns_dir = os.path.join(self.processed_data_dir, "returns")
+        # Get data paths directly from config
+        self.raw_data_path = config['data']['raw']['fundamentals']
+        self.processed_data_dir = config['data']['processed']['fundamentals']
+        self.feature_set_dir = config['data']['features']['fundamentals']
+        
+        # Get processing config
+        processing_config = config.get('processing', {})
+        self.scaling_variable = processing_config.get('scaling_variable', 'SALES')
+        self.winsorization_threshold = processing_config.get('winsorization_threshold', 0.01)
+        self.fill_method = processing_config.get('fill_method', 'linear')
+        self.min_data_points = processing_config.get('min_data_points', 100)
+        self.max_missing_ratio = processing_config.get('max_missing_ratio', 0.2)
+        
+        # Get feature config
+        feature_config = config.get('features', {})
+        self.identifier_fields = set(feature_config.get('identifier_fields', []))
+        self.absolute_value_fields = set(feature_config.get('absolute_value_fields', []))
+        self.standard_deviation_fields = set(feature_config.get('standard_deviation_fields', []))
+        self.ratio_fields = set(feature_config.get('ratio_fields', []))
+        
+        # Get suffix config
+        suffix_config = feature_config.get('suffixes', {})
+        self.raw_suffix = suffix_config.get('raw', '_RAW')
+        self.signed_log_suffix = suffix_config.get('signed_log', '_SIGNED_LOG')
+        self.ratio_suffix = suffix_config.get('ratio', '_RATIO')
+        self.scaled_suffix = suffix_config.get('scaled', '_SCALED_{SALES}')
+        self.raw_signed_log_suffix = suffix_config.get('raw_signed_log', '_RAW_SIGNED_LOG')
+        self.raw_scaled_suffix = suffix_config.get('raw_scaled', '_RAW_SCALED_{SALES}')
+        self.raw_scaled_signed_log_suffix = suffix_config.get('raw_scaled_signed_log', '_RAW_SCALED_{SALES}_SIGNED_LOG')
+        self.ratio_signed_log_suffix = suffix_config.get('ratio_signed_log', '_RATIO_SIGNED_LOG')
         
         # Create directories if they don't exist
+        os.makedirs(self.raw_data_path, exist_ok=True)
         os.makedirs(self.processed_data_dir, exist_ok=True)
-        os.makedirs(self.fundamentals_dir, exist_ok=True)
-        os.makedirs(self.returns_dir, exist_ok=True)
+        os.makedirs(self.feature_set_dir, exist_ok=True)
         
-        # Initialize efficient data storage
-        self.data_storage = EfficientDataStorage(config, logger)
+        # Define valuation ratio fields that should not be scaled by SALES
+        self.valuation_ratio_fields = [
+            'PE_RATIO',
+            'PREV_PE_RATIO',
+            'PX_TO_BOOK_RATIO',
+            'PREV_PX_TO_BOOK_RATIO'
+        ]
         
-        # Initialize efficient data storage
-        self.data_storage = EfficientDataStorage(config, logger)
+        # Define operating ratio fields that should not be scaled by SALES
+        self.operating_ratio_fields = [
+            'INTEREST_EXPENSE_TO_TOTAL_DEBT',
+            'RETURN_ON_ASSETS',
+            'RETURN_COM_EQY',
+            'DEBT_TO_EQUITY_RATIO',
+            'NET_DEBT_TO_EQUITY_RATIO',
+            'CURRENT_RATIO',
+            'OPERATING_MARGIN',
+            'ASSET_TURNOVER',
+            'INVENTORY_TURNOVER',
+            'INTEREST_COVERAGE',
+            'QUICK_RATIO',
+            'NET_INCOME_COEFF_OF_VAR',
+            'EBIT_COEFF_OF_VAR',
+            'EBITDA_COEFF_OF_VAR',
+            'SALES_COEFF_OF_VAR'
+        ]
     
     def load_raw_data(self, date: Optional[str] = None) -> pd.DataFrame:
         """
@@ -68,10 +111,22 @@ class DataProcessor:
         Returns:
             DataFrame containing raw financial data
         """
-        self.logger.info(f"Loading raw data from {self.raw_data_path}")
+        # Get base directory from config
+        base_dir = self.config['data']['base_dir']
+        financials_dir = self.config['data']['financials_dir']
+        
+        # Use the configured raw data path
+        if date:
+            # Extract year and month from date (YYYY-MM-DD -> YYYY-MM)
+            year_month = date[:7]  # Get YYYY-MM from YYYY-MM-DD
+            raw_data_path = os.path.join(base_dir, financials_dir, f"financials_{year_month.replace('-', '_')}.pq")
+        else:
+            raw_data_path = os.path.join(base_dir, financials_dir, "financials.pq")
+            
+        self.logger.info(f"Loading raw data from {raw_data_path}")
         
         # Load raw data
-        df = pd.read_parquet(self.raw_data_path)
+        df = pd.read_parquet(raw_data_path)
         
         # Normalize column names to uppercase for consistency
         df.columns = [col.upper() for col in df.columns]
@@ -120,42 +175,123 @@ class DataProcessor:
     
     def transform_raw_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Transform raw financial data.
-        
-        Args:
-            df: DataFrame containing raw financial data
-            
-        Returns:
-            DataFrame containing transformed data
+        Transform raw data by calculating periods and applying transformations.
         """
-        self.logger.info("Transforming raw data")
+        # Calculate periods
+        df = self.calculate_periods(df)
         
-        # Create a copy of the DataFrame to avoid modifying the original
-        transformed_df = df.copy()
+        # Ensure PERIOD column is integer type
+        df['PERIOD'] = df['PERIOD'].astype(int)
         
-        # Get metrics to transform from config
-        metrics = self.config['features']['metrics']
+        # Store PERIOD column separately
+        period_col = df['PERIOD'].copy()
         
-        # Apply signed log transform to each metric
-        for metric in metrics:
-            if metric in transformed_df.columns:
-                self.logger.debug(f"Applying signed log transform to {metric}")
-                transformed_df[f"{metric.lower()}_signed_log"] = self.signed_log_transform(transformed_df[metric])
+        # Calculate coefficient of variation fields (base calculation only)
+        financial_metrics = {
+            'NET_INCOME': 'NET_INCOME_CSTAT_STD',
+            'EBIT': 'EBIT_CSTAT_STD',
+            'EBITDA': 'EBITDA_CSTAT_STD',
+            'SALES': 'SALES_CSTAT_STD'
+        }
         
-        # Calculate periods for each ticker
-        transformed_df = self.calculate_periods(transformed_df)
+        for metric, std_field in financial_metrics.items():
+            if metric in df.columns and std_field in df.columns:
+                coeff_var_field = f'{metric}_COEFF_OF_VAR'
+                # Calculate coefficient of variation (std / |value|)
+                df[coeff_var_field] = df[std_field] / df[metric].abs()
+                # Replace inf values with NaN
+                df[coeff_var_field] = df[coeff_var_field].replace([np.inf, -np.inf], np.nan)
+                # Add to operating ratio fields for further processing
+                if coeff_var_field not in self.operating_ratio_fields:
+                    self.operating_ratio_fields.append(coeff_var_field)
+
+        # Define field categories
+        absolute_value_fields = [
+            'NET_INCOME', 'EBIT', 'EBITDA', 'SALES', 'NET_OPERATING_ASSETS',
+            'INVENTORIES', 'FREE_CASH_FLOW', 'DIVIDEND', 'CAPEX', 'DEPRECIATION'
+        ]
         
-        # Fill missing values if enabled
-        if self.enable_filling:
-            self.logger.info("Filling missing values")
-            transformed_df = self.fill_missing_values(transformed_df)
+        standard_deviation_fields = [
+            'NET_INCOME_CSTAT_STD', 'EBIT_CSTAT_STD', 'EBITDA_CSTAT_STD',
+            'SALES_CSTAT_STD', 'RETURN_COM_EQY_CSTAT_STD', 'INVENTORY_TURNOVER_CSTAT_STD'
+        ]
         
-        # Winsorize features to handle outliers
-        transformed_df = self.winsorize_features(transformed_df)
+        # Process absolute value fields
+        for field in absolute_value_fields:
+            if field in df.columns:
+                # Store raw value
+                df[f'{field}{self.raw_suffix}'] = df[field]
+                
+                # Apply signed log to raw value
+                df[f'{field}{self.raw_signed_log_suffix}'] = self.signed_log_transform(df[field])
+                
+                # Scale by SALES if not SALES itself
+                if field != self.scaling_variable and self.scaling_variable in df.columns:
+                    scaled_field = f'{field}{self.raw_scaled_suffix.format(SALES=self.scaling_variable)}'
+                    df[scaled_field] = df[field] / df[self.scaling_variable].abs()
+                    df[scaled_field] = df[scaled_field].replace([np.inf, -np.inf], np.nan)
+                    
+                    # Apply signed log to scaled value
+                    df[f'{field}{self.raw_scaled_signed_log_suffix.format(SALES=self.scaling_variable)}'] = \
+                        self.signed_log_transform(df[scaled_field])
         
-        self.logger.info(f"Transformed data with shape: {transformed_df.shape}")
+        # Process standard deviation fields
+        for field in standard_deviation_fields:
+            if field in df.columns:
+                # Store raw value
+                df[f'{field}{self.raw_suffix}'] = df[field]
+                
+                # Apply signed log to raw value
+                df[f'{field}{self.raw_signed_log_suffix}'] = self.signed_log_transform(df[field])
+                
+                # Get base metric name
+                base_metric = field.replace('_CSTAT_STD', '')
+                
+                # Scale by SALES if base metric is not SALES and not in ratio fields
+                if (base_metric != self.scaling_variable and 
+                    base_metric not in self.operating_ratio_fields and 
+                    base_metric not in self.valuation_ratio_fields):
+                    scaled_field = f'{field}{self.raw_scaled_suffix.format(SALES=self.scaling_variable)}'
+                    df[scaled_field] = df[field] / df[self.scaling_variable].abs()
+                    df[scaled_field] = df[scaled_field].replace([np.inf, -np.inf], np.nan)
+                    
+                    # Apply signed log to scaled value
+                    df[f'{field}{self.raw_scaled_signed_log_suffix.format(SALES=self.scaling_variable)}'] = \
+                        self.signed_log_transform(df[scaled_field])
         
-        return transformed_df
+        # Process operating ratio fields (including coefficient of variation fields)
+        for field in self.operating_ratio_fields:
+            if field in df.columns:
+                # Store ratio value
+                df[f'{field}{self.ratio_suffix}'] = df[field]
+                
+                # Apply signed log to ratio
+                df[f'{field}{self.ratio_signed_log_suffix}'] = self.signed_log_transform(df[field])
+        
+        # Process valuation ratio fields
+        for field in self.valuation_ratio_fields:
+            if field in df.columns:
+                # Store ratio value
+                df[f'{field}{self.ratio_suffix}'] = df[field]
+                
+                # Apply signed log to ratio
+                df[f'{field}{self.ratio_signed_log_suffix}'] = self.signed_log_transform(df[field])
+        
+        # Handle missing values and outliers
+        for field in df.columns:
+            if field not in self.identifier_fields and field != 'PERIOD':  # Skip PERIOD column
+                # Replace infinite values with NaN
+                df[field] = df[field].replace([np.inf, -np.inf], np.nan)
+                # Fill missing values with median
+                df[field] = df[field].fillna(df[field].median())
+        
+        # Apply winsorization
+        df = self.winsorize_features(df)
+        
+        # Restore PERIOD column
+        df['PERIOD'] = period_col
+        
+        return df
     
     def calculate_periods(self, df: pd.DataFrame, id_col: str = 'ID', 
                          date_col: str = 'PIT_DATE', period_end_col: str = 'PERIOD_END_DATE') -> pd.DataFrame:
@@ -183,6 +319,10 @@ class DataProcessor:
         # Extract fiscal month from period end date
         result_df['fiscal_month'] = result_df[period_end_col].dt.month
         
+        # Log fiscal month distribution for debugging before processing
+        fiscal_month_counts = result_df.groupby(id_col)['fiscal_month'].nunique()
+        self.logger.info(f"Number of unique fiscal months per ID: {fiscal_month_counts.value_counts()}")
+        
         # Define the period calculation function
         def calculate_periods_for_group(group):
             # Sort by period end date
@@ -201,29 +341,48 @@ class DataProcessor:
             # For each period end date, calculate how many periods away it is from pit_date
             pit_date = group[date_col].iloc[0]
             
-            # Calculate years difference
-            years_diff = (group[period_end_col].dt.year - pit_date.year)
+            # Calculate if the period end date is before or after pit_date
+            is_before_pit = group[period_end_col] <= pit_date
             
-            # Adjust period based on fiscal month
-            # If fiscal month is after pit_date month, subtract 1 from future periods
-            # If fiscal month is before pit_date month, add 1 to past periods
-            month_adjustment = ((group[period_end_col].dt.month == fiscal_month) & 
-                              ((fiscal_month > pit_date.month) & (years_diff >= 0) |
-                               (fiscal_month < pit_date.month) & (years_diff <= 0)))
+            # For historical periods (before PIT_DATE), count from most recent (0) to oldest (-1, -2, etc.)
+            historical_periods = group[is_before_pit].copy()
+            if not historical_periods.empty:
+                historical_periods = historical_periods.sort_values(period_end_col, ascending=False)
+                historical_periods['PERIOD'] = list(range(-len(historical_periods) + 1, 1))
             
-            group['period'] = years_diff - month_adjustment.astype(int)
+            # For future periods (after PIT_DATE), count from nearest (1) to furthest (2, 3, etc.)
+            future_periods = group[~is_before_pit].copy()
+            if not future_periods.empty:
+                future_periods = future_periods.sort_values(period_end_col)
+                future_periods['PERIOD'] = list(range(1, len(future_periods) + 1))
+            
+            # Combine historical and future periods
+            group = pd.concat([historical_periods, future_periods])
+            
+            # Drop the fiscal_month column as it's no longer needed
+            group = group.drop('fiscal_month', axis=1)
+            
+            # Ensure PERIOD column is integer type
+            group['PERIOD'] = group['PERIOD'].astype(int)
+            
             return group
         
         # Apply period calculation by ID
         self.logger.info(f"Calculating periods by ID using id column: '{id_col}'")
         result_df = result_df.groupby(id_col).apply(calculate_periods_for_group).reset_index(drop=True)
         
-        # Log period counts
-        period_counts = result_df['period'].value_counts().sort_index()
-        self.logger.info(f"Period counts: {dict(period_counts)}")
-        self.logger.info(f"Available periods: {sorted(result_df['period'].unique())}")
+        # Log period counts and verify PERIOD column exists
+        if 'PERIOD' in result_df.columns:
+            period_counts = result_df['PERIOD'].value_counts().sort_index()
+            self.logger.info(f"Period counts: {dict(period_counts)}")
+            periods = sorted(result_df['PERIOD'].unique())
+            self.logger.info(f"Available periods: {[int(p) for p in periods]}")
+        else:
+            self.logger.error("PERIOD column was not created!")
+            self.logger.info(f"Available columns: {result_df.columns.tolist()}")
         
         return result_df
+    
     def fill_missing_values(self, df: pd.DataFrame, group_col: str = 'ID') -> pd.DataFrame:
         """
         Fill missing values in the DataFrame.
@@ -348,14 +507,14 @@ class DataProcessor:
         Returns:
             DataFrame with winsorized features
         """
-        threshold = threshold or self.winsorize_threshold
+        threshold = threshold or self.winsorization_threshold
         self.logger.info(f"Winsorizing features with threshold: {threshold}")
         
         # Create a copy of the DataFrame
         result_df = df.copy()
         
         # Get columns to winsorize (exclude ID, date, and period columns)
-        exclude_cols = ['ID', 'PIT_DATE', 'PERIOD_END_DATE', 'period']
+        exclude_cols = ['ID', 'PIT_DATE', 'PERIOD_END_DATE', 'PERIOD', 'period']
         winsorize_cols = [col for col in result_df.columns if col not in exclude_cols]
         
         # Winsorize each column
@@ -389,24 +548,34 @@ class DataProcessor:
     
     def save_processed_data(self, df: pd.DataFrame, date: str) -> str:
         """
-        Save processed data to a file.
+        Save processed data using the data storage system.
         
         Args:
             df: DataFrame containing processed data
             date: Date of the data
             
         Returns:
-            Path to the saved file
+            Path to the saved data
         """
-        # Use efficient data storage to store the data
-        output_path = self.data_storage.store_processed_data(df, date)
+        self.logger.info(f"Saving processed data for date: {date}")
         
-        # For backward compatibility, also return the legacy file path
-        legacy_file_path = os.path.join(self.processed_data_dir, f"processed_{date}.pq")
+        # Create a copy of the DataFrame to avoid modifying the original
+        df_copy = df.copy()
         
-        self.logger.info(f"Saved processed data using efficient storage")
+        # Ensure date column is datetime
+        df_copy['PIT_DATE'] = pd.to_datetime(df_copy['PIT_DATE'])
         
-        return legacy_file_path
+        # Save using the data storage system
+        output_path = self.data_storage.store_data(
+            df=df_copy,
+            data_type=DataType.FUNDAMENTALS,
+            stage=DataStage.PROCESSED,
+            date=date
+        )
+        
+        self.logger.info(f"Saved processed data to: {output_path}")
+        
+        return output_path
     
     def process_data(self, start_date: str, end_date: str) -> Dict[str, str]:
         """
@@ -439,14 +608,24 @@ class DataProcessor:
                 self.logger.warning(f"No data found for date: {date_str}")
                 continue
             
+            # Convert all column names to uppercase
+            raw_df.columns = raw_df.columns.str.upper()
+            
             # Transform raw data
             transformed_df = self.transform_raw_data(raw_df)
             
             # Save processed data
             output_file = self.save_processed_data(transformed_df, date_str)
-            
-            # Add to processed files dictionary
             processed_files[date_str] = output_file
+            
+            # Save signed log data
+            signed_log_file = self.save_signed_log_data(transformed_df)
+            processed_files[f"{date_str}_signed_log"] = signed_log_file
+            
+            # Generate and save pre-feature data
+            pre_feature_df = self.processed_data_feat_gen(transformed_df)
+            pre_feature_file = self.save_pre_feature_set(pre_feature_df)
+            processed_files[f"{date_str}_pre_feature"] = pre_feature_file
         
         self.logger.info(f"Processed {len(processed_files)} dates")
         
@@ -670,3 +849,211 @@ class DataProcessor:
             data['total_returns'] = pd.DataFrame()
         
         return data 
+    
+    def save_signed_log_data(self, df: pd.DataFrame) -> str:
+        """
+        Create a new DataFrame with only signed log columns and save it to parquet.
+        Ensures all column names are uppercase.
+        
+        Args:
+            df: DataFrame containing processed data
+            
+        Returns:
+            Path to the saved file
+        """
+        self.logger.info("Creating signed log data DataFrame")
+        
+        # Create a copy to avoid modifying the original DataFrame
+        df_copy = df.copy()
+        
+        # Keep identifier fields and all signed log columns
+        cols_to_keep = []
+        
+        # Add identifier fields
+        cols_to_keep.extend(self.identifier_fields)
+        
+        # Add signed log columns based on suffixes
+        signed_log_suffixes = [
+            self.raw_signed_log_suffix,
+            self.raw_scaled_signed_log_suffix.format(SALES=self.scaling_variable),
+            self.ratio_signed_log_suffix
+        ]
+        
+        for suffix in signed_log_suffixes:
+            signed_log_cols = [col for col in df_copy.columns if suffix in col]
+            cols_to_keep.extend(signed_log_cols)
+        
+        # Create a new DataFrame with essential columns and signed log columns
+        processed_data_signed_log = df_copy[cols_to_keep].copy()
+        
+        # Convert all column names to uppercase
+        processed_data_signed_log.columns = [col.upper() for col in processed_data_signed_log.columns]
+        
+        # Get the date from PIT_DATE
+        if 'PIT_DATE' in df_copy.columns and not df_copy['PIT_DATE'].empty:
+            date_str = pd.to_datetime(df_copy['PIT_DATE'].iloc[0]).strftime('%Y-%m-%d')
+        else:
+            date_str = datetime.now().strftime('%Y-%m-%d')
+        
+        # Save using the data storage system with partitioned format
+        output_path = self.data_storage.store_data(
+            df=processed_data_signed_log,
+            data_type=DataType.FUNDAMENTALS,
+            stage=DataStage.PROCESSED,
+            date=date_str,
+            sub_type='signed_log'
+        )
+        
+        self.logger.info(f"Saved signed log data with shape {processed_data_signed_log.shape} to {output_path}")
+        
+        return output_path
+
+    def apply_signed_log(self, series: pd.Series) -> pd.Series:
+        """
+        Apply signed log transformation to a series.
+        
+        Args:
+            series: Input series
+            
+        Returns:
+            Series with signed log transformation applied
+        """
+        return np.sign(series) * np.log1p(np.abs(series))
+
+    def apply_winsorization(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply winsorization to numeric columns.
+        
+        Args:
+            df: Input DataFrame
+            
+        Returns:
+            DataFrame with winsorization applied
+        """
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if col not in self.identifier_fields:
+                lower, upper = np.nanpercentile(df[col], 
+                                              [self.winsorize_limits[0] * 100, 
+                                               self.winsorize_limits[1] * 100])
+                df[col] = df[col].clip(lower=lower, upper=upper)
+        return df 
+
+    def processed_data_feat_gen(self, processed_data: pd.DataFrame, scaling_field: str = 'SALES') -> pd.DataFrame:
+        """
+        Filter processed data to keep:
+        1. Basic identifier and time fields
+        2. Feature categories:
+           - RAW_SIGNED_LOG
+           - RAW_SCALED_{scaling_field}_SIGNED_LOG
+           - RATIO_SIGNED_LOG
+           - COEFF_OF_VAR fields
+        
+        Args:
+            processed_data: Input DataFrame with processed data
+            scaling_field: Field used for scaling (default: 'SALES')
+            
+        Returns:
+            DataFrame containing identifier/time fields and specified feature categories
+        """
+        self.logger.info("Generating feature set from processed data")
+        
+        # Convert scaling_field to uppercase
+        scaling_field = scaling_field.upper()
+        
+        # Define basic identifier and time fields to keep (in uppercase)
+        base_fields = ['ID', 'PERIOD_END_DATE', 'PIT_DATE', 'PERIOD']
+        
+        # Define feature categories to keep
+        columns_to_keep = base_fields.copy()  # Start with base fields
+        
+        # Add RAW_SIGNED_LOG columns
+        raw_cols = [col for col in processed_data.columns if col.upper().endswith('_RAW_SIGNED_LOG')]
+        columns_to_keep.extend(raw_cols)
+        
+        # Add RAW_SCALED_{scaling_field}_SIGNED_LOG columns
+        scaled_cols = [col for col in processed_data.columns if f'_RAW_SCALED_{scaling_field}_SIGNED_LOG'.upper() in col.upper()]
+        columns_to_keep.extend(scaled_cols)
+        
+        # Add RATIO_SIGNED_LOG columns
+        ratio_cols = [col for col in processed_data.columns if col.upper().endswith('_RATIO_SIGNED_LOG')]
+        columns_to_keep.extend(ratio_cols)
+        
+        # Add COEFF_OF_VAR columns
+        cv_cols = [col for col in processed_data.columns if col.upper().endswith('_COEFF_OF_VAR')]
+        columns_to_keep.extend(cv_cols)
+        
+        # Filter the DataFrame to keep only the specified columns
+        filtered_df = processed_data[columns_to_keep].copy()
+        
+        # Convert all column names to uppercase
+        filtered_df.columns = filtered_df.columns.str.upper()
+        
+        self.logger.info(f"Generated feature set with shape: {filtered_df.shape}")
+        self.logger.info(f"Number of features: {len(filtered_df.columns)}")
+        
+        # Save the feature set using PIT_DATE
+        self.save_pre_feature_set(filtered_df)
+        
+        return filtered_df
+    
+    def save_pre_feature_set(self, feature_set: pd.DataFrame) -> str:
+        """
+        Save pre-feature creation data to parquet file.
+        Uses PIT_DATE to determine the save date - if multiple dates exist,
+        uses the month from PIT_DATE for the filename.
+        
+        Args:
+            feature_set: DataFrame containing the pre-feature data
+            
+        Returns:
+            Path to the saved pre-feature file
+        """
+        # Get unique PIT_DATEs
+        pit_dates = feature_set['PIT_DATE'].unique()
+        
+        if len(pit_dates) == 0:
+            self.logger.warning("No PIT_DATE found in the data")
+            return ""
+            
+        # If multiple dates, use the month from the first date
+        if len(pit_dates) > 1:
+            self.logger.info(f"Multiple PIT_DATEs found: {pit_dates}")
+            # Use the first date's month for the filename
+            date_str = pd.to_datetime(pit_dates[0]).strftime('%Y-%m-%d')
+        else:
+            date_str = pd.to_datetime(pit_dates[0]).strftime('%Y-%m-%d')
+        
+        # Save using the data storage system with partitioned format
+        output_path = self.data_storage.store_data(
+            df=feature_set,
+            data_type=DataType.FUNDAMENTALS,
+            stage=DataStage.FEATURES,
+            date=date_str,
+            sub_type='pre_feature_set'
+        )
+        
+        self.logger.info(f"Saved pre-feature set to {output_path}")
+        return output_path
+    
+    def load_pre_feature_set(self, date: str) -> pd.DataFrame:
+        """
+        Load pre-feature creation data from parquet file.
+        
+        Args:
+            date: Date of the data (can be YYYY-MM or YYYY-MM-DD)
+            
+        Returns:
+            DataFrame containing the pre-feature data
+        """
+        filename = f"pre_feature_set_{date}.pq"
+        filepath = os.path.join(self.feature_set_dir, filename)
+        
+        if os.path.exists(filepath):
+            self.logger.info(f"Loading pre-feature set from {filepath}")
+            feature_set = pd.read_parquet(filepath)
+            self.logger.info(f"Loaded pre-feature set with shape: {feature_set.shape}")
+            return feature_set
+        else:
+            self.logger.warning(f"Pre-feature set file not found: {filepath}")
+            return pd.DataFrame() 

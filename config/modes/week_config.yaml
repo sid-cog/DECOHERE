@@ -1,0 +1,38 @@
+# Week mode specific configuration
+mode: week
+batch_size: 5
+max_days: 5
+
+# Processing parameters specific to week mode
+processing:
+  winsorization_threshold: 0.01
+  fill_method: linear
+  min_data_points: 500
+  max_missing_ratio: 0.15
+
+# Feature generation parameters specific to week mode
+feature_generation:
+  metrics:
+    - momentum
+    - volatility
+    - volume
+    - technical_indicators
+  lookback_periods:
+    - 5
+    - 10
+    - 20
+    - 60
+  rolling_windows:
+    - 5
+    - 10
+    - 20
+    - 60
+
+# Model training parameters specific to week mode
+model_training:
+  algorithm: ridge_regression
+  alpha: 1.0
+  cross_validation_folds: 4
+  early_stopping_rounds: 8
+  learning_rate: 0.01
+  max_iterations: 800 

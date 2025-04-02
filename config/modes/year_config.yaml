@@ -1,0 +1,43 @@
+# Year mode specific configuration
+mode: year
+batch_size: 252
+max_days: 252
+
+# Processing parameters specific to year mode
+processing:
+  winsorization_threshold: 0.01
+  fill_method: linear
+  min_data_points: 1000
+  max_missing_ratio: 0.1
+
+# Feature generation parameters specific to year mode
+feature_generation:
+  metrics:
+    - momentum
+    - volatility
+    - volume
+    - technical_indicators
+    - fundamental_ratios
+  lookback_periods:
+    - 5
+    - 10
+    - 20
+    - 60
+    - 120
+    - 252
+  rolling_windows:
+    - 5
+    - 10
+    - 20
+    - 60
+    - 120
+    - 252
+
+# Model training parameters specific to year mode
+model_training:
+  algorithm: ridge_regression
+  alpha: 1.0
+  cross_validation_folds: 5
+  early_stopping_rounds: 10
+  learning_rate: 0.01
+  max_iterations: 1000 
