@@ -1,0 +1,50 @@
+Feature Selection Summary
+==================================================
+
+Target Column: PE_RATIO_RATIO_SIGNED_LOG
+Number of Selected Features: 7
+Feature Selection Method: shap_threshold
+Threshold: 0.01
+Cumulative Threshold: 0.95
+Use Cumulative: True
+
+Selected 7 features
+
+Top 20 Features by Importance:
+--------------------------------------------------
+1. 111: 0.0356
+2. 113: 0.0333
+3. 91: 0.0300
+4. 114: 0.0264
+5. 72: 0.0211
+6. 74: 0.0206
+7. 110: 0.0202
+8. 284: 0.0186
+9. 513: 0.0146
+10. 134: 0.0138
+11. 143: 0.0106
+12. 278: 0.0098
+13. 241: 0.0097
+14. 132: 0.0095
+15. 92: 0.0087
+16. 81: 0.0085
+17. 266: 0.0074
+18. 395: 0.0067
+19. 534: 0.0066
+20. 135: 0.0065
+
+Selected Features:
+--------------------------------------------------
+- rank_as_is_INVENTORY_TURNOVER_RATIO_SIGNED_LOG_period_-5
+- rank_as_is_INVENTORY_TURNOVER_RATIO_SIGNED_LOG_period_1
+- rank_as_is_PX_TO_BOOK_RATIO_RATIO_SIGNED_LOG_period_-3
+- rank_as_is_PX_TO_BOOK_RATIO_RATIO_SIGNED_LOG_period_1
+- rank_as_is_PX_TO_BOOK_RATIO_RATIO_SIGNED_LOG_period_3
+- rank_as_is_RETURN_COM_EQY_RATIO_SIGNED_LOG_period_1
+- rank_ratio_fwd_slope_RETURN_COM_EQY_RATIO_SIGNED_LOG
+
+Feature Importance Statistics:
+--------------------------------------------------
+Mean Importance: 0.0018
+Max Importance: 0.0356
+Min Importance: 0.0000

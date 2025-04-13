@@ -1,0 +1,36 @@
+Performance Analysis for 2024-09-02
+================================================================================
+
+Average Performance Metrics:
+Average RMSE: 0.2991
+Average R2 Score: 0.9016
+Average Number of Trees: 100.0
+
+Cross-Validation Results:
+   fold      rmse        r2  n_trees
+0     1  0.444948  0.797819      100
+1     2  0.223893  0.951066      100
+2     3  0.253103  0.936704      100
+3     4  0.239092  0.941573      100
+4     5  0.334296  0.880876      100
+
+Top 10 Most Important Features:
+                                                          feature  mean_importance  std_importance
+115                 rank_as_is_PE_RATIO_RATIO_SIGNED_LOG_period_2         0.186761        0.019502
+116                 rank_as_is_PE_RATIO_RATIO_SIGNED_LOG_period_3         0.094806        0.022776
+113                rank_as_is_PE_RATIO_RATIO_SIGNED_LOG_period_-5         0.026641        0.002578
+246       rank_ratio_combined_vol_RETURN_COM_EQY_RATIO_SIGNED_LOG         0.015741        0.012196
+112                rank_as_is_PE_RATIO_RATIO_SIGNED_LOG_period_-4         0.014913        0.007021
+288      rank_ratio_fwd_slope_INVENTORY_TURNOVER_RATIO_SIGNED_LOG         0.014095        0.002633
+124         rank_as_is_PX_TO_BOOK_RATIO_RATIO_SIGNED_LOG_period_3         0.013870        0.013064
+413  rank_scaled_combined_r2_DIVIDEND_RAW_SCALED_SALES_SIGNED_LOG         0.013858        0.008837
+111                rank_as_is_PE_RATIO_RATIO_SIGNED_LOG_period_-3         0.012657        0.009316
+54         rank_as_is_INTEREST_COVERAGE_RATIO_SIGNED_LOG_period_3         0.011866        0.012425
+
+SHAP Values Summary:
+       mean       std       min       max
+0  0.000111  0.034294 -1.755282  1.400206
+1 -0.000359  0.035214 -1.958763  1.204021
+2 -0.000078  0.030867 -1.864774  1.335383
+3  0.000015  0.034140 -1.860597  1.479697
+4  0.000270  0.031922 -1.857879  1.414123

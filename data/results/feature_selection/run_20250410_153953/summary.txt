@@ -1,0 +1,10 @@
+SHAP Feature Selection Summary for PE_RATIO_RATIO_SIGNED_LOG
+================================================================================
+
+Method: shap_threshold
+Minimum Threshold: 0.01
+Minimum Features: 10
+Maximum Features: 40
+Cumulative Threshold: 0.95
+Use Cumulative: True
+

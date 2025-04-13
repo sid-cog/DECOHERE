@@ -1,0 +1,23 @@
+# Jupytext configuration file
+# This enables auto-syncing between .ipynb and .py files
+
+# Default format for new notebooks
+default_jupytext_formats = "ipynb,py:percent"
+
+# Notebook metadata
+notebook_metadata_filter = "jupytext,-all,-language_info,-toc,-latex_envs,-varInspector,-widgets,-notebook_metadata_filter"
+
+# Cell metadata to preserve
+cell_metadata_filter = "-all"
+
+# Format options for Python files
+formats = "ipynb,py:percent"
+
+# Auto-sync on save
+auto_sync = true
+
+# Use percent format for Python files
+py_format = "percent"
+
+# Preserve notebook outputs in the .ipynb file
+notebook_outputs = true 
