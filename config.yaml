@@ -2,17 +2,64 @@
 
 # Data paths
 data:
-  raw_path: "/home/siddharth_johri/projects/data/financials/financials_2024_09.pq"
-  processed_path: "data/processed/processed_data.pq"
-  features_path: "data/features/features.pq"
+  # Raw data paths
+  raw:
+    fundamentals: "data/raw/fundamentals"  # Monthly fundamental parquet files
+    returns: "data/raw/returns"            # Returns data
+    sector: "data/raw/sector"              # Sector mapping data
+    alternate:
+      type_A: "data/raw/alternate/type_A"
+      type_B: "data/raw/alternate/type_B"
+
+  # Processed data paths (partitioned by year/month)
+  intermediate:
+    fundamentals: "data/intermediate/fundamentals"
+    returns: "data/intermediate/returns"
+    alternate:
+      type_A: "data/intermediate/alternate/type_A"
+      type_B: "data/intermediate/alternate/type_B"
+
+  # Feature input data paths (partitioned by year/month)
+  processed:
+    fundamentals: "data/processed/fundamentals"
+    returns: "data/processed/returns"
+    alternate:
+      type_A: "data/processed/alternate/type_A"
+      type_B: "data/processed/alternate/type_B"
+
+  # Final features paths (partitioned by year/month)
+  features:
+    fundamentals: "data/features/fundamentals"
+    returns: "data/features/returns"
+    alternate:
+      type_A: "data/features/alternate/type_A"
+      type_B: "data/features/alternate/type_B"
+    combined: "data/features/combined"
+
+  # Other paths
+  models: "data/models"
+  reporting: "data/reporting"
 
 # Processing parameters
 processing:
+  # Data cleaning and transformation
   winsorize_threshold: 0.01  # 1% threshold for winsorization
   fill_method: "linear"      # Method for filling missing values
+  enable_filling: true       # Whether to fill missing values
+  winsorize_limits: [0.01, 0.99]  # Winsorization limits
+  min_data_points: 100
+  max_missing_ratio: 0.2
+
+  # Data storage
+  storage:
+    compression: "snappy"    # Parquet compression codec
+    partitioning:
+      scheme: "year=YYYY/month=MM"  # Partitioning scheme
+      granularity: "monthly"        # Partition granularity
 
 # Feature generation
 features:
+  # Financial metrics
   metrics:
     - "SALES_REV_TURN"
     - "BS_TOT_ASSET"
@@ -20,12 +67,49 @@ features:
     - "NET_INCOME"
     - "CF_FREE_CASH_FLOW"
   
-  # Number of periods to use for feature generation
-  periods: 12
+  # Feature calculation parameters
+  periods: 12  # Number of periods to use for feature generation
+  identifier_fields: ["ID", "PERIOD_END_DATE", "PIT_DATE"]
+  absolute_value_fields: ["SALES", "ASSETS"]
+  standard_deviation_fields: ["RETURNS"]
 
 # Pipeline modes
 modes:
-  day: "2024-09-11"
-  week: "2024-09-05"
+  day:
+    config_file: config/modes/day_config.yaml
+    batch_size: 1
+    max_days: 1
+  week:
+    config_file: config/modes/week_config.yaml
+    batch_size: 5
+    max_days: 5
   month: "2024-09-01"
-  year: "2024-01-01" 
+  year:
+    config_file: config/modes/year_config.yaml
+    batch_size: 252
+    max_days: 252
+  all_years: true  # Whether to process all available years 
+
+# Feature selection parameters
+feature_selection:
+  method: lasso
+  alpha: 0.01
+  max_features: 50
+  min_features: 10
+  cross_validation_folds: 5
+
+# Model training parameters
+model_training:
+  algorithm: ridge_regression
+  alpha: 1.0
+  cross_validation_folds: 5
+  early_stopping_rounds: 10
+  learning_rate: 0.01
+  max_iterations: 1000
+
+# Logging configuration
+logging:
+  log_dir: logs
+  log_level: INFO
+  max_file_size: 10MB
+  backup_count: 5 

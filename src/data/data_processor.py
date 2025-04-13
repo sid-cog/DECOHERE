@@ -15,6 +15,7 @@ from src.data.efficient_data_storage import EfficientDataStorage
 from pathlib import Path
 from datetime import datetime
 from src.data.data_types import DataType, DataStage
+from src.data.period_calculator import PeriodCalculator
 
 
 class DataProcessor:
@@ -22,30 +23,62 @@ class DataProcessor:
     Data processor for loading and transforming raw financial data.
     """
     
-    def __init__(self, config: Dict[str, Any], logger: Optional[logging.Logger] = None):
+    def __init__(self, config: Dict[str, Any], winsorize: bool = True):
         """
-        Initialize the data processor.
+        Initialize DataProcessor with configuration.
         
         Args:
             config: Configuration dictionary
-            logger: Optional logger instance. If not provided, a new logger will be created.
+            winsorize: Whether to apply winsorization after signed log transformation
         """
         self.config = config
+        self.winsorize = winsorize
         
         # Initialize logger
-        self.logger = logger if logger is not None else logging.getLogger(__name__)
+        self.logger = logging.getLogger(__name__)
         
         # Initialize data storage
-        self.data_storage = EfficientDataStorage(config, logger)
+        self.data_storage = EfficientDataStorage(config, self.logger)
         
-        # Get data paths directly from config
-        self.raw_data_path = config['data']['raw']['fundamentals']
-        self.processed_data_dir = config['data']['processed']['fundamentals']
-        self.feature_set_dir = config['data']['features']['fundamentals']
+        # Get data paths from config
+        base_dir = config.get('data', {}).get('base_dir', '')
+        self.raw_data_path = os.path.join(base_dir, config.get('data', {}).get('raw', {}).get('fundamentals', ''))
+        self.processed_data_path = os.path.join(base_dir, config.get('data', {}).get('processed', {}).get('fundamentals', ''))
+        self.pre_feature_data_path = os.path.join(base_dir, config.get('data', {}).get('features', {}).get('fundamentals', ''))
+        self.enhanced_feature_data_path = os.path.join(base_dir, config.get('data', {}).get('features', {}).get('fundamentals', ''))
+        
+        # Get period configuration
+        self.period_columns = config.get('features', {}).get('identifier_fields', ['PIT_DATE', 'PERIOD_END_DATE'])
+        self.period_units = ['days', 'days']  # Default to days
+        self.period_aggregations = ['mean', 'mean']  # Default to mean
+        self.period_weights = [1.0, 1.0]  # Default equal weights
+        self.period_thresholds = [365, 365]  # Default 1 year threshold
+        
+        # Initialize period calculator
+        self.period_calculator = PeriodCalculator(
+            period_columns=self.period_columns,
+            period_units=self.period_units,
+            period_aggregations=self.period_aggregations,
+            period_weights=self.period_weights,
+            period_thresholds=self.period_thresholds
+        )
+        
+        # Get field configurations
+        self.identifier_fields = config.get('features', {}).get('identifier_fields', ['ID', 'PIT_DATE', 'PERIOD_END_DATE'])
+        self.operating_ratio_fields = config.get('features', {}).get('ratio_fields', [])
+        self.valuation_ratio_fields = config.get('features', {}).get('valuation_ratio_fields', [])
+        self.scaling_variable = config.get('features', {}).get('scaling_variable', 'SALES')
+        
+        # Suffixes for different transformations
+        self.raw_suffix = '_RAW'
+        self.raw_signed_log_suffix = '_RAW_SIGNED_LOG'
+        self.raw_scaled_suffix = '_RAW_SCALED_BY_{SALES}'
+        self.raw_scaled_signed_log_suffix = '_RAW_SCALED_BY_{SALES}_SIGNED_LOG'
+        self.ratio_suffix = '_RATIO'
+        self.ratio_signed_log_suffix = '_RATIO_SIGNED_LOG'
         
         # Get processing config
         processing_config = config.get('processing', {})
-        self.scaling_variable = processing_config.get('scaling_variable', 'SALES')
         self.winsorization_threshold = processing_config.get('winsorization_threshold', 0.01)
         self.fill_method = processing_config.get('fill_method', 'linear')
         self.min_data_points = processing_config.get('min_data_points', 100)
@@ -53,7 +86,6 @@ class DataProcessor:
         
         # Get feature config
         feature_config = config.get('features', {})
-        self.identifier_fields = set(feature_config.get('identifier_fields', []))
         self.absolute_value_fields = set(feature_config.get('absolute_value_fields', []))
         self.standard_deviation_fields = set(feature_config.get('standard_deviation_fields', []))
         self.ratio_fields = set(feature_config.get('ratio_fields', []))
@@ -70,36 +102,21 @@ class DataProcessor:
         self.ratio_signed_log_suffix = suffix_config.get('ratio_signed_log', '_RATIO_SIGNED_LOG')
         
         # Create directories if they don't exist
-        os.makedirs(self.raw_data_path, exist_ok=True)
-        os.makedirs(self.processed_data_dir, exist_ok=True)
-        os.makedirs(self.feature_set_dir, exist_ok=True)
+        if self.raw_data_path:
+            os.makedirs(self.raw_data_path, exist_ok=True)
+        if self.processed_data_path:
+            os.makedirs(self.processed_data_path, exist_ok=True)
+        if self.pre_feature_data_path:
+            os.makedirs(self.pre_feature_data_path, exist_ok=True)
+        if self.enhanced_feature_data_path:
+            os.makedirs(self.enhanced_feature_data_path, exist_ok=True)
         
-        # Define valuation ratio fields that should not be scaled by SALES
-        self.valuation_ratio_fields = [
-            'PE_RATIO',
-            'PREV_PE_RATIO',
-            'PX_TO_BOOK_RATIO',
-            'PREV_PX_TO_BOOK_RATIO'
-        ]
-        
-        # Define operating ratio fields that should not be scaled by SALES
-        self.operating_ratio_fields = [
-            'INTEREST_EXPENSE_TO_TOTAL_DEBT',
-            'RETURN_ON_ASSETS',
-            'RETURN_COM_EQY',
-            'DEBT_TO_EQUITY_RATIO',
-            'NET_DEBT_TO_EQUITY_RATIO',
-            'CURRENT_RATIO',
-            'OPERATING_MARGIN',
-            'ASSET_TURNOVER',
-            'INVENTORY_TURNOVER',
-            'INTEREST_COVERAGE',
-            'QUICK_RATIO',
-            'NET_INCOME_COEFF_OF_VAR',
-            'EBIT_COEFF_OF_VAR',
-            'EBITDA_COEFF_OF_VAR',
-            'SALES_COEFF_OF_VAR'
-        ]
+        # Validate configuration
+        self._validate_config()
+    
+    def _validate_config(self):
+        # Implement validation logic based on the configuration
+        pass
     
     def load_raw_data(self, date: Optional[str] = None) -> pd.DataFrame:
         """
@@ -185,6 +202,14 @@ class DataProcessor:
         
         # Store PERIOD column separately
         period_col = df['PERIOD'].copy()
+        
+        # Handle missing values and outliers first
+        for field in df.columns:
+            if field not in self.identifier_fields and field != 'PERIOD':  # Skip PERIOD column
+                # Replace infinite values with NaN
+                df[field] = df[field].replace([np.inf, -np.inf], np.nan)
+                # Fill missing values with median
+                df[field] = df[field].fillna(df[field].median())
         
         # Calculate coefficient of variation fields (base calculation only)
         financial_metrics = {
@@ -277,16 +302,24 @@ class DataProcessor:
                 # Apply signed log to ratio
                 df[f'{field}{self.ratio_signed_log_suffix}'] = self.signed_log_transform(df[field])
         
-        # Handle missing values and outliers
-        for field in df.columns:
-            if field not in self.identifier_fields and field != 'PERIOD':  # Skip PERIOD column
-                # Replace infinite values with NaN
-                df[field] = df[field].replace([np.inf, -np.inf], np.nan)
-                # Fill missing values with median
-                df[field] = df[field].fillna(df[field].median())
-        
-        # Apply winsorization
-        df = self.winsorize_features(df)
+        # Apply winsorization to signed log transformed values if enabled
+        if self.winsorize:
+            # Get all signed log transformed columns
+            signed_log_columns = [col for col in df.columns if any(suffix in col for suffix in 
+                                [self.raw_signed_log_suffix, self.raw_scaled_signed_log_suffix, 
+                                 self.ratio_signed_log_suffix])]
+            
+            # Apply winsorization to each signed log column separately
+            for col in signed_log_columns:
+                # Group by PIT_DATE and PERIOD_END_DATE
+                for (pit_date, period_end), group in df.groupby(['PIT_DATE', 'PERIOD_END_DATE']):
+                    # Calculate percentiles for this group
+                    lower = group[col].quantile(0.01)
+                    upper = group[col].quantile(0.99)
+                    
+                    # Apply winsorization to this group
+                    mask = (df['PIT_DATE'] == pit_date) & (df['PERIOD_END_DATE'] == period_end)
+                    df.loc[mask, col] = df.loc[mask, col].clip(lower=lower, upper=upper)
         
         # Restore PERIOD column
         df['PERIOD'] = period_col

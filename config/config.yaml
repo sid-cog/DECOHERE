@@ -31,7 +31,7 @@ data:
   reporting: reporting
   # Specific data source paths
   financials_dir: raw/fundamentals
-  sector_mapping: /home/siddharth_johri/projects/data/sector/sector.pq
+  sector_mapping: /home/siddharth.johri/DECOHERE/data/raw/sector/sector_mappings.pq
   price_returns: /home/siddharth_johri/projects/data/returns/px_df.pq
   total_returns: /home/siddharth_johri/projects/data/returns/tr_df.pq
 

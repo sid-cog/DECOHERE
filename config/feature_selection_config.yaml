@@ -1,0 +1,36 @@
+feature_selection:
+  # General parameters
+  missing_threshold: 0.5  # Remove features with >50% missing values
+  correlation_threshold: 0.95  # Remove features with correlation > 0.95
+  min_variance: 0.0  # Remove features with zero variance
+  
+  # Cross-validation parameters
+  cv:
+    n_splits: 5  # Number of cross-validation splits
+    shuffle: true
+    random_state: 42
+  
+  # Parameter optimization
+  optimization:
+    n_trials: 100  # Number of optimization trials
+    direction: minimize  # Optimization direction (minimize/maximize)
+    
+  # Elastic Net parameters
+  elastic_net:
+    # Parameter ranges for optimization
+    alpha_range: [1e-4, 1.0]  # Alpha parameter range
+    l1_ratio_range: [0.0, 1.0]  # L1 ratio range
+    random_state: 42
+    
+  # XGBoost parameters
+  xgboost:
+    n_features: 50  # Number of top features to select
+    # Parameter ranges for optimization
+    max_depth_range: [3, 10]
+    learning_rate_range: [1e-3, 0.1]
+    n_estimators_range: [50, 200]
+    subsample_range: [0.6, 1.0]
+    colsample_bytree_range: [0.6, 1.0]
+    min_child_weight_range: [1, 7]
+    gamma_range: [0.0, 0.5]
+    random_state: 42 

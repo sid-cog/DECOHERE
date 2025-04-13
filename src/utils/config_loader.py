@@ -31,6 +31,30 @@ def load_config(config_path: str = 'config.yaml') -> Dict[str, Any]:
     return config
 
 
+def deep_merge(base_dict: Dict[str, Any], override_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Deep merge two dictionaries, with override_dict taking precedence.
+    
+    Args:
+        base_dict: Base configuration dictionary
+        override_dict: Override configuration dictionary
+        
+    Returns:
+        Dictionary containing the merged configuration
+    """
+    merged = base_dict.copy()
+    
+    for key, value in override_dict.items():
+        if isinstance(value, dict) and key in merged and isinstance(merged[key], dict):
+            # Recursively merge nested dictionaries
+            merged[key] = deep_merge(merged[key], value)
+        else:
+            # Override or add the value
+            merged[key] = value
+    
+    return merged
+
+
 def load_mode_config(mode: str, base_config_path: str = 'config/config.yaml') -> Dict[str, Any]:
     """
     Load mode-specific configuration and merge it with the base configuration.
@@ -51,8 +75,8 @@ def load_mode_config(mode: str, base_config_path: str = 'config/config.yaml') ->
     # Load mode-specific configuration
     mode_config = load_config(mode_config_path)
     
-    # Merge configurations (mode config takes precedence)
-    merged_config = {**base_config, **mode_config}
+    # Deep merge configurations (mode config takes precedence)
+    merged_config = deep_merge(base_config, mode_config)
     
     return merged_config
 
