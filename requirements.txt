@@ -12,3 +12,4 @@ jupyterlab-pygments==0.3.0
 jupyterlab-server==2.25.2
 jupyterlab-widgets==3.0.9
 jupytext==1.16.0
+lightgbm>=4.6.0

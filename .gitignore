@@ -16,9 +16,48 @@ lib64/
 parts/
 sdist/
 var/
+wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# Data files
+data/models/*
+data/results/*
+*.parquet
+*.csv
+*.dat
+*.png
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.venv
+venv/
+ENV/
+
+# Logs
+*.log
+logs/
+results/
+
+# Memory profiles
+memory_profile_*.dat
+memory_profile_*.png
+
+# Specific to this project
+data/models/
+data/results/
+results/
 
 # Virtual Environment
 venv/
@@ -35,10 +74,6 @@ data/features/
 *.pkl
 *.pickle
 
-# Jupyter Notebook
-.ipynb_checkpoints
-*/.ipynb_checkpoints/*
-
 # Temporary files
 temp_execution_files/*
 !temp_execution_files/.gitignore
@@ -50,6 +85,15 @@ backup_*/
 consolidated_backup/
 docs_backup/
 docs_cleanup_backup/
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # IDE files
 .idea/
